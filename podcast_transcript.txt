@@ -1,0 +1,255 @@
+All right, everyone, welcome to another episode of The TWIML AI Podcast. I am your host, Sam Charrington. Today, I'm joined by Victor Dibia.
+
+Victor is Principal Research Software Engineer at Microsoft Research. And we've got a great conversation lined up for you today. We'll be reviewing Victor's take on the most important AI agent innovations in 2024, and what we should expect to see in the year to come.
+
+And of course, we'll also discuss Victor's work on multi-agent frameworks in general and AutoGen in particular. Victor, welcome to the podcast.
+
+Thank you, Sam. It's great to be here.
+
+I'm super excited for the conversation. I know in your world as in mine, I guess more so in your world even than in mine, agents is a hot topic that comes up all the time. And I know you've got a lot of interesting takes on that topic.
+
+Let's get started by having you share a little bit about your background.
+
+I'm a Research Software Engineer. I work at Microsoft Research. I work specifically with a group called the Human AI Experiences Group.
+
+And essentially by design, we are interested in scenarios where a human works in tandem with an AI model to solve tasks. In terms of background, my training is mostly software engineering. Some work in HCI.
+
+So I have a master's in computer science, information networking from Carnegie Mellon University. And I did a PhD in Information Systems at City University of Hong Kong. And my PhD is mostly focused on human-computer interaction, user behavior psychology, and how we can conduct a set of experiments that help us understand how people make decisions as they use technology tools and interfaces.
+
+And the whole idea is that we take all of that knowledge and we sort of apply it in designing better interfaces.
+
+Your group at Microsoft sounds like a traditional HCI research group, but you ended up building AutoGen. And I don't know if you own that as a product. I guess my point is it feels very productized as a software infrastructure product coming out of this HCI group.
+
+So how did that all come about?
+
+Yeah, so I could talk about my own personal path to agent, and then I could talk a little bit about the history of some early stories around AutoGen. So I started out right after my PhD. I started out as a postdoc at IBM Research over at New York, Yorktown Heights, and then I stayed on as a research staff member.
+
+And one of the things I worked on there was I was with a HCI group, and we worked very closely with a core machine learning group. And at the time, IBM had just come up with the cognitive service APIs. And we were building all this complex multimodal demos around like speech to text, text to speech, image recognition.
+
+Using all of that together in like physical room scale experiences. One of the things I did back then was that I trained perhaps the first model for automated data visualization. So I didn't actually remember the sequence to sequence models.
+
+And so they were typically used for language translation. And they were like the state of the art back then. And we showed that if you could represent visualizations in JSON, VegaLite, and you could represent like data in the same JSON specification, then you could learn translations across the two.
+
+And so at runtime, we gave this system, this model, like some text. We sampled a couple of rows from the JSON dataset directly. And it will generate a bunch of visualizations that were grounded on that.
+
+So that was really interesting. And if you think about it, there's a bit of action there, right? And so we generate like Vega specification, we compile it, and we give a visualization.
+
+And so after that, I spent some time at Cloudera, traditionally a big data warehousing company, but it had like a machine learning group, and we built a lot of prototypes, did some customer consulting. Then after that, I joined Microsoft Research. And there, I did some work on a tool called LIDAR.
+
+And so LIDAR is again, an automated visualization tool, but had like a bit of a pipeline. So first of all, we got some data. We got like an LLM to generate a summary, an enriched summary of this data.
+
+Based on that, we got an LLM to generate a sort of hypothesis that made sense for this data. And then for each of these hypotheses, we could get an LLM to write code, and the background, we did like process and post-processing, we got code, we executed it. And we gave folks a bunch of visualizations.
+
+And so, and this was in 2000, just pretty early, I think, late 2020, before ChatGPT. So it was an entire interface, you know, that did all this like pipeline work on the backend. And it used the codex set of models.
+
+And for the most part, you can see some agentic behavior there. And so it's not just LLMs generating stuff, you know, we're compiling code, we're doing pre-processing, post-processing. And so once you create a lot of these pipelines, you start to see like some broader patterns.
+
+And so, you know, the next question is, can we go from that to a system that like, without having to manually sort of build out the exact steps in the pipeline, instead, we define the set of agents, and we get them a task, and they sort of collaborated autonomously to sort of solve this problem. And one instantiation of work like that was AutoGen. And so for the most part, AutoGen started out like exploring this theory that maybe we could explore a new way to develop applications.
+
+And so instead of building specific pipelines to express the problem to express the solution to a problem, we could instead define a set of agents with fairly broad capabilities. We give them a task and they could sort of collaborate to solve a problem. And there was a really, there were a few really clever people within our broader group started to explore this, did a bunch of experiments, wrote a paper.
+
+So I wasn't an original author on that paper, but we worked very closely, I worked very closely with that group. And essentially that's sort of like what led to AutoGen as a framework. And it's been about a year and some months, a lot of things have happened.
+
+We've got a bunch to dig into here, and I don't necessarily want to belabor things by talking about like defining agents, but you mentioned that you heard me talking with Chip on that topic in a recent interview, and you had your own take on how agents are defined. I'd love to have you share that.
+
+Yeah, so I think a simple definition works. I think a lot of people are converging on the idea that like if we take an LLM and we give it access to tools that let it take some action, so essentially this LLM can now act, then we have an agent. And from the software engineering point of view, that's like the basic instantiation.
+
+So you take an LLM, you give it some tool calling capabilities, you give it the ability to execute the results of those tool calls, and then you have an agent. And I feel like I'm happy with that base definition. In practice, it can be, if you want it to be a bit more precise, I think there might be a few other things.
+
+So you want something that has the ability to reason, has the ability to act, know their tools, has some adaptation capabilities, in this case, perhaps memory, and then finally some abilities to communicate, and so it can send messages to other agents or to humans. And so it's reason, act, communicate, and adapt. And so this is, I think, like the four built-in blocks I would say sort of make up an agent.
+
+It seems like that reasoning ability is a key differentiator between a traditional software system that uses large language models and an agentic system in my mind, and that it is what unlocks the ability for it to be dynamic as opposed to like statically defined workflow.
+
+Yeah. So reasoning, yes, I do agree. I think one way to think of it is from the perspective of, let's say, planning.
+
+And so you get a task, you decompose it into a set of steps, and the idea is that if you succeed at executing each of the steps, you go from a state where the problem is unsolved, the task is unsolved, and then you arrive at a step where the task is now solved. And I think you touch on the idea of dynamic. I think the interesting bit here is like, do you, you know, as you take each of these actions, you might, you know, the problem might exist in a dynamic space or a dynamic environment, and each time you take an action, it changes the environment, and in some cases, those changes might lead to errors or failure conditions.
+
+And I think the key part is like a good, like autonomous or good multi-agent system should have the ability to sort of recover from that and sort of either abandon the current plan or make adjustments and sort of keep making progress. And a really simple example is that, let's say you're trying to solve a problem, your agent writes some code, executes it, there's some errors there, it looks at the code, based on the error, it sort of modifies the code, executes it again, my missing libraries incurred arguments. And if you do have this sort of behavior where, you know, every action has some results, some outcome, and you can respond to that and then keep making progress, then I feel that sort of speaks to the dynamic aspect of a multi-agent system.
+
+So we're going to dig into that, I think, in a lot more detail. But I think for this first part of the conversation, you put some thought into kind of what you, you know, from your perspective, the most important developments in agents over the past year or so, and, you know, and how those set the stage for the upcoming year. And I wanted to start by digging into some of those.
+
+So I think the first thing on your list is about adoption.
+
+Yeah, let's start right there. So over the last five months, I figured out it would be great to sort of keep track of what's changing. So what I did was that each time I saw like a research paper or a new product or a new tool, I kept a bunch of notes.
+
+And at the end of the year, December last year, I sort of figured out what are high level categories here. And in terms of adoption, I feel like a lot of enterprises and teams adopted the 10 agents, but they did that with like some caveats. And so for the most part, what most people deployed last year or in the last year was mostly an LLM as a thin wrapper around existing APIs and tools.
+
+And so as opposed to like fully autonomous behavior where like at runtime the agents can explore on unknown or like unscripted paths. Essentially, they just took the existing APIs, very, very tight, structured action space, and all the LLM can do for the most part is to make calls to these APIs. And this is a really good game plan because you get a lot of reliability out of that.
+
+I think the second thing on that little list was the rise of agent-native foundation models. And so about a year ago, we mostly had like models like GBS 3.5 and the equivalent and Google from Google and Anthropic. And most of these models mostly focused on language modeling.
+
+And so they were writing text, they were writing code. And for the most part, they were mostly text-in or in some cases, multimodal text-in, image-in, but only text-out. And one of the things we saw in the last year was that these models were increasingly integrating multi-agent capabilities just baked right into the model.
+
+So some of the capabilities like the ability to reflect things. So if you remember the React pattern where the idea is like you get the LLM to come up with the thoughts, get it to reflect in that, and then take more actions. And so we're seeing that like with things like the O1 model family, the ability to just think and reflect is sort of just lifted up into the model itself.
+
+And you know, you give the model a task, it does all this internal introspection reasoning before you get like a result out. And also we saw things like natively multimodal in and out model. So I think the Gemini 2.0 model, so these things can take in text, image, video, audio, and the same model can sort of spit out results across all three modalities.
+
+And so I think that was the second interesting thing we saw in 2024. The third thing had to do with interface agents. And some other people have referred to them as computer use agents.
+
+And the idea is that as opposed to agents just calling tools, APIs, or code, we now see sort of a shift towards agents that act by simulating what humans do with interfaces. And so examples of that are agents that sort of solve tasks using a browser. And so I think about two days ago, we saw OpenAI release the operator agent.
+
+And the whole idea is that you could tell things like, you know, book a flight for me, and I'll go to, let's say, flights.google.com or click around, put in all the information, dates, source and destination locations, all that stuff, and then probably come back at some point, get some feedback, get some confirmation, and get things done. Fun fact, on the AutoGen land, we've built out systems or tools like this. And I think one of the excitements of the last two days was that once the operator came out, we said that he has like 40 lines of code “and you could implement your operator using AutoGen.
+
+Did the browser control framework already exist in the AutoGen world?
+
+Yes, that's an excellent question. So in AutoGen world, we have a bunch of presets. And so we have like a preset assistant agent that like, it's a classic.
+
+It just has an LLM model, a set of tools. But we also have this preset called a web surfer agent. And underneath this agent drives a Chromium web browser.
+
+And it uses a multimodal, any multimodal LLM model. And so essentially, it has an action space about how to get work done on the browser, text input, clicking around, navigation, all of that. And essentially, it pretty much just acts by sort of driving and manipulating this browser.
+
+And it's a really nice, well-designed agent was done by one of my colleagues, really brilliant fellow, Adam Phoney. And essentially, all you have to do is plug in this preset into your multi-agent team and get all of that capabilities. Nice.
+
+So interface agents?
+
+Yes. So interface agents. So we have that with AutoGen, the web server agent in AutoGen.
+
+We also have like tools from Anthropic. You know, they have like a computer, computer use implementation. And there are a bunch of other like tools that sort of exist in that space.
+
+And so we saw a few of those sort of like advancements in 2024. The third thing had to do with complex tasks and frameworks. And so I did see that, you know, as a community, as a field, line chain got us very, very far.
+
+So line chain showed how you could sort of get a set of deterministic steps, put them together in chain, execute them. But, you know, there was a bit of appetite for more complex workflows. And we, essentially, more autonomous kind of workflows were like the task.
+
+You want a system that can address any task. And in fact, it reminds me of an article that, like, Bill Gates wrote about, I think, a year and a half ago, talking about how today, you know, back then, if you wanted to sort of, let's say write an email, you went to like an email processing app, Outlook. If you wanted to do CRM stuff, you went to a CRM app.
+
+And if you wanted to do music stuff, you went to a music app. And he talked about the idea of an everything app, a unified interface where you just expressed your task in natural language. And the system just, if it needed to manipulate or reach out to other systems, it did that.
+
+And so I feel there's a lot of value, a lot of time-saving, effort-saving value proposition there. And I think the community sort of started to resonate around that. And I think organically, that has led to the design of frameworks like AutoGen, LandGraph, Korea AI, Lama Index, because we want to figure out ways to provide good presets that help people build this sort of, like, generalist kind of systems.
+
+And I think, again, I might touch on what I mean by complex tasks, but I think that's one of the shifts that we saw in 2024. So beyond scripted deterministic pipelines to more autonomous, like, systems that could sort of address multiple disparate tasks. And then the final, the final, I said, the final update had to do with moving beyond just benchmarking models independently, but essentially extending to just end-to-end, like, evaluation of agentic systems on tasks that require action across multiple domains in the real world.
+
+And I think one of my favorite, one of my favorite benchmarks day is the Gaia benchmark. And essentially, I think, if I recall correctly, it's about 300 problems that, as at the time of release, it looks really simple. These problems are really simple, really easy for humans to accomplish.
+
+But the best models at the time, I think, was GPT-4, which just feels really bad. I think they had like a 10% pass rate there, if I recall correctly.
+
+What are some examples of the Gaia tasks?
+
+Yeah. So it might be things like, how long would it take Aliyut Kipchagui to run across the earth, let's say, 50 times? Now, to do something like that, you need to figure out, oh, who is Aliyut Kipchagui?
+
+What's his maximum? He's a marathon record holder, so you need to figure out what's his speed. And if you are, you know, what's the circumference of the earth, then you need to do that little math that sort of puts everything together.
+
+And it might be things like, you know, like what did Sam Charrington say in the 78th minute of his 2025, I don't know, January 1st podcast? Now, to do that, you need to go to YouTube, find like who's Sam Charrington, find the exact YouTube video that's being referenced, extract, extract the transcript, and go to the 78th minute and figure it out. Now, as a human, this is really straightforward, frankly, but how does a machine go about stuff like this?
+
+If you really think about it, there are all kinds of ways where this machine might fail. And I remember a group, again, led by one of my colleagues, developed a generalist agent system called “Magentic One. And essentially, for a long time, it held the state-of-the-art performance on tasks like that.
+
+And all of that process was extremely instructive. We learned a lot about how these things could fail, the differences between how humans think about problems, when machines, even the ones driven by sophisticated algorithms, try to address the same tasks. And so, I think that was like the third and more interesting, the third interesting update for 2024, or the fifth, sorry.
+
+So, let's dig into these. I have a bunch of questions across this list. Maybe let's start with these kind of agent-native foundation models, you call them.
+
+Talk a little bit more about the way you think of them as agents. I think, I guess my personal experience is that I originally thought of them in a very agentic way, but then, as we've seen with DeepSeek showing you the thought tokens, it seems less agentic, in a sense. Does that make sense?
+
+I guess it's like, it seems more like a straightforward but slightly more complex application of traditional LLMs in some way.
+
+Yeah. So, I guess what you're hinting at is like, if you didn't see the thought tokens, then it looked like it was doing something more clever. But when you saw the thought tokens, it was just an autoregressive model.
+
+So, just predicting the very next token. So, I guess the interesting thing is, what is different when the model is primed to explore like the iterative thinking process, as opposed to just generating the next likely token. I think from the human behavioral psychology perspective, and I say this with caution, LLMs are not humans.
+
+They're not like humans in any form. But if you think about it, there's the whole concept of the system, one thinking, system two thinking, thinking fast and slow. And there's a whole idea of like, for things that are simple, as humans, we've adapted to use heuristics, right?
+
+So if I did ask you, Sam, what's your birthday? You don't need to think about it. You tell me.
+
+Or like, what time is it? Or is it morning or evening? You know the answer to that.
+
+So you can rely on heuristics. So these things are like right there at the top of your mind. But if I did ask you like, hey, you know, like the question earlier, how long will it take a marathon runner to run around the earth like 50 times?
+
+Now this requires a bit more investment, a bit more computation and effort. And a lot of people did complain earlier that like, say about a year and a half ago, if you ask the model these two questions, you'll take exactly the same amount of time to give a response. And there's just something not right about it that like, some two problems, so different, so complex, we are assigned about the same effort.
+
+And I think a lot of that has informed some of the work in test time compute. And the whole idea here with the O1 reasoning and DiffSig family models is, we want a way to communicate to the model of the system that like, some problems perhaps require a bit more investment, more computer investment and all this. And it turns out that it does work when you design the system that way, you just “get better results.
+
+Underneath is still an autoregressive model doing autoregressive stuff. But it just turns out that the setup, the problem setup sort of results in better results for thinking and reasoning style problems.
+
+And so the advantages of those types of models for, you know, like complex information gathering and presentation, report generation, those kinds of tasks is pretty clear. Are you seeing those reasoning advantages play out in terms of, like, the planning style of reasoning that's important in making complex agentic systems work?
+
+Yeah, yes. So one of the good things about, like, let's say a tool like AutoGen is, let's say, you could decompose your problem and express them as agents. So you could have an agent that's explicitly just focused on planning.
+
+So, for example, I mentioned earlier the Magentic 1 paper. So the way that that setup was done was that, like, we had, you know, we argued for the design of a generalist system that can address multiple different types of tasks, and we tested them across multiple agentic benchmarks, the exact same system, so nothing was fine-tuned for a specific system. And they were composed of four agents.
+
+So the first was an orchestrator or a planner. So all they did was they took a task and they would decompose it into a plan and assign steps in the plan to other agents. And there were, I think, four other agents, something called a coder.
+
+All they did was write code. There was one that was a computer terminal, all they did was execute code. There was a web surfer agent.
+
+Essentially, the task needed like interaction with the websites. And then there was a file surfer agent. So if you need to open things like video files and image files or PowerPoint presentations, that sort of thing.
+
+And the core idea is that for, let's say, the orchestrator, you could, for each of these things, you could design them different models. And so for the orchestrator, I think my theory is that something like that, that's meant to like reason through the problem, do some sort of task decomposition, assign steps to different like agents.
+
+An agent like that really would benefit a lot from like some of these sort of like test time computer reasoning models. Now, the other is something like, let's say, file software “, all it does is just has a bunch of tools that lets it interact with files. Probably not a lot of benefit there.
+
+And is that intuition, or have you seen benchmarks that, you know, take a system like a Magentic One and insert a reasoning agent for that orchestrator step?
+
+We haven't released any results. Let's say, let me use the word release. We haven't released any results yet, but early experiment and some of, I think I don't remember other papers off the top of my head, but I think I have seen a few where just dropping in the reasoning model did give like a significant boost.
+
+I guess I want to poke at like there's maybe a nuanced difference between seeing a significant boost and like unlocking a whole new area of capability. Do you see these types of models doing the latter?
+
+I wouldn't see exactly a whole new, like a whole new type of capability. I think it's just maybe performance improvement. I think a lot of the types of problems we're thinking of solving with this system is still the same class of problems.
+
+Maybe, I think the more interesting thing here is, if we look at this system from the perspective of like failure modes, bad plans, or the ability to come up with good plans on the first try is a significant performance issue for this sort of autonomous systems. And from that perspective, if you get something that reasons well, comes up with a good plan on the first try, then you get some benefit there. But the type of problem hasn't changed.
+
+It's not like we're suddenly, I don't know, we're suddenly doing new types of things. It's just that we're getting reliability or performance, maybe even safety improvements where possible.
+
+So with the Magentic 1 work, you mentioned that one of those agentic types was a coder. Was that primarily used in the context of coding problems, or was it code that was generated in the process of solving other types of problems? I've come across several different papers that use code as this intermediary for planning and other things, and I find that a really interesting and compelling way to use code.
+
+Yeah, that's a really, really good question.
+
+So it brings me to how I think about tools. I think there are two types of tools. So there are tasks specific on other domain tools, and then there are general purpose tools.
+
+And I feel like a code interpreter is a type of general purpose tool. Some problems, a lot of problems can be... The solutions to a lot of problems can be expressed as code.
+
+And the key point here is getting the orchestrator to figure out, okay, this support problem could be solved really well when expressed as code. And then getting the coder to sort of write that code, and then getting the code interpreter to execute it is like an emerging pattern. So to answer your question, it wasn't just solving like software engineering task type problems.
+
+It was mostly like, hey, no, he has a task.
+
+There's more code interpreter than code generation.
+
+Yeah, yeah, that would be like a good focus. And of course, there are caveats there. So if you have a system that has this very wide action space, then it can do a lot of interesting, maybe even unusual things.
+
+So an example that we, a funny example that we like to talk about, like in the margin, and we talk about it in the margin, took one paper. At some point, the agents were looking for some information. They were supposed to conduct a Google search, and they failed to find that information.
+
+And you can imagine what they did. They wrote some code to send an email to request an FOIA, essentially to send freedom of information, and emailed that organization to request that data. It's like, hey, we're conducting this research.
+
+We need this information. We can't find it. By law, we're supposed to have access to it.
+
+And they crafted this email, and they were going to use an email API to sort of send it.
+
+Imagining the agents sending it to, like trying to send it to Google, as opposed to a government organization or something.
+
+
+Yeah. So, it's a fun fact, but it is true if you don't constrain the action space of what these models can do, because code is just this really expressive thing. They can take any kind of action, express it as code, and then it could lead to things that...
+
+And the way you solve this is that the orchestrator can make some high-level decisions as to, is the task being stalled? Is it going the wrong direction? Sort of metacognition, right?
+
+As these agents act, the orchestrator is sort of inspecting the progress and is saying things like, you know, are we stalled? Was our maximum stall count? And should we reset, modify the plan, abandon this route, and take a separate route?
+
+So, yeah, that caveats to using, like, general purpose tools.
+
+And the way you talked about those aspects of the orchestrator is maybe a segway into talking about these complex tasks and frameworks, which was one of your items. Specifically for those types of parameters you were describing, are those things that the user of a framework like AutoGen, like, are they thinking about them? Are they setting parameters?
+
+Are they coding them? Like, how do you manage the level of abstraction that someone working, you know, trying to build an agentic system to tackle complex tasks has to deal with?
+
+So a question like this, you know, ties into, like, slightly how do you design frameworks? How do developers think? And I could tell you a little bit about how, like...
+
+As an HCI guy, I feel like I've opened the box.
+
+Oh, yeah. And I could be a bit more practical to tell you about how we are pushing with AutoGen. And so in AutoGen, there are currently there are two API levels.
+
+So there's a core API, and the idea is that, like, it mostly just provides you with the bare bones capabilities for things like just message delivery. And so anything could be an agent. You could define anything as an agent, inherit from a base class, and the only thing you're required to do is to modify a method that says, you know, the agent has received a message.
+
+What does it do? And so it could be as simple as it receives a message, it does nothing, or it sends back the exact same message, and that's all. No opinion to whatever the agent does when it receives a message.
+
+The developer is responsible for that. And essentially, all we guarantee is that there's a concept of a runtime. When you define your agent, the runtime spins up, creates instances of this agent, enables message delivery, and this agent might live across multiple machines, they might be on the same machine, and that's all.
+
+But for most developers, this is still too low level. And so we have another API called Agent Chat. And Sam, you're from the old world, you probably remember Keras.
+
+Well, Keras was like this high-level abstraction, very intuitive, but beneath it could run a TensorFlow backend, or a PyTorch backend, or a JAX backend. So think of Agent Chat as the Keras of this world. And the kind of presets we have there is things like a basic assistant agent.
+
+And so this thing is what I think is the fundamental representation of a basic agent. And so it can take an LLM, it can take a list of tools, it can take a list of memory banks, and essentially that's the standard interface, that's the standard definition there. And so model client, a list of tools, which could be functions, it could be anything, and a set of like memory banks, so just to enable a rag or like just-in-time retrieval of the information.
+
+And we have another preset, which is like the web server agent, which essentially is just all the things you need to drive a web browsing and sort of accomplish tasks using that. And then we have, I think, one or two other presets, not very important. So that's at the agent level.
+
+Then how do these things sort of collaborate? So we have the concept of teams. And so think of them as containers that you put these agents into.
+
+
+And it mostly governs the order in which messages flows across these agents. And so we have a preset, something called a round rubbing team. And what it does is that once a task comes in, it just sort of sends messages across each of the agents until some termination condition is met.
+
+And then the final abstraction we have at the team level is a termination condition, which can be really, really tricky. It's like this guy said, exploring a task, how do they know when it's done? And so we have abstractions like text message termination.
+
+So means if any of the agents, you could define in their prompt their behavior, they might constantly sort of inspect the state of the task. And if the task is done, they might respond with a word like terminate. And so let's say you scan for that in the messages, you decide that things are done.
